@@ -1,0 +1,4 @@
+# Hier reinschreiben wann resetet werden soll.
+reset_tag: Freitag  # Montag, Dinestag, ..., Sonntag --> Rechtschreibung beachten!!!
+reset_stunde: 20  # 0-23
+reset_minute: 0 # 0-59
