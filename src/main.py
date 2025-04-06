@@ -1,7 +1,10 @@
 import log
-import gui
+# import gui
 import functions
 import logging
+
+
+VERSION = "v.0.0.0" # Muss mit jedem Update aktualisiert werden
 
 
 def main():

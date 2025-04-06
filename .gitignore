@@ -6,3 +6,4 @@ logs/*
 data.json
 src/__pycache__
 src/test.py
+noUpdate.txt

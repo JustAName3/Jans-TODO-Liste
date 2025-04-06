@@ -61,3 +61,16 @@ def next_reset_date(due_day: int, time: tuple[int, int]):
 
     return next_due_day
 
+
+def check_time(reset_day):
+    """
+    Returns True wenn der reset erreicht ist.
+    Now ist für den Timer, dann muss das nicht nocheinmal geholt werden.
+
+    """
+    now = datetime.datetime.today()
+
+    if reset_day > now:
+        return False, now
+    elif reset_day <= now:
+        return True, now 

@@ -61,7 +61,7 @@ logger = {
             "propagate": True
         },
 
-        "main.updater": {
+        "main.update": {
             "level": "DEBUG",
             "propagate": True
         }
