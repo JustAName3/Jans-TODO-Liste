@@ -1,3 +1,1 @@
-v.0.0.1
-assets/trash.png
-src/t.py
+v.0.1.0

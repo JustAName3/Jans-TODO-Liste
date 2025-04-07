@@ -1,13 +1,17 @@
 from tkinter import PhotoImage
 from PIL import Image, ImageTk
 import tkinter as tk
+import subprocess
 import functions
+import datetime
 import pathlib
 import logging
 import config
+import update
+import sys
+import os
 
 
-import log       # LÖSCHEN
 
 logger = logging.getLogger("main.gui") 
 data_path = pathlib.Path(__file__).parent.parent / "data.json" # Pfad zur Datei mit den Daten
@@ -17,7 +21,7 @@ assets_path = pathlib.Path(__file__).parent.parent / "assets"
 
 class App(tk.Tk):
 
-    def __init__(self, data):
+    def __init__(self):
 
         super().__init__()
         config.load_config()
@@ -27,13 +31,32 @@ class App(tk.Tk):
         self.geometry("1050x600")
 
         self.tasks: list = [] # Hier werden alle Task Instanzen gespeichert.
-        self.data: list = data # Alle Daten der Tasks werden hier gespeichert. 
+        self.data: list = [] # Alle Daten der Tasks werden hier gespeichert. 
         self.due_day = functions.next_reset_date(due_day= config.due_day, time= config.due_time) # Nächster reset
        
-        self.new_button = tk.Button(master= self, text= "Neu", command= self.add_task)
-        self.new_button.pack(padx= 10, pady= 10, anchor= "w")
+        
+        self.gh_label = tk.Label(master= self, text= "GitHub: github.com/JustAName3/Jans-TODO-Liste", foreground= "grey")
+        self.gh_label.pack(padx= 10, pady= 5, side= "bottom")
 
 
+        # Knöpfe oben
+        self.nav_frame = tk.Frame(master= self)
+        self.nav_frame.pack(padx=10, pady= 10, expand= False, fill= "x")
+
+        self.new_button = tk.Button(master= self.nav_frame, text= "Neu", command= self.add_task)
+        self.new_button.grid(row= 0, column= 0)
+
+        self.update_button = tk.Button(master= self.nav_frame, text= "Update", command= lambda: update.update(app_instance= self))
+        self.update_button.grid(row= 0, column= 1, padx= 10, sticky= "w")
+
+        self.settings_button = tk.Button(master= self.nav_frame, text= "Settings", command= self.open_settings)
+        self.settings_button.grid(row= 0, column= 2)
+
+        self.timer = tk.Label(master= self.nav_frame, text= "")
+        self.timer.grid(row= 0, column= 3, padx= 10)
+
+
+        # Frame mit den Tasks
         self.main_frame = tk.Frame(master= self)
         self.main_frame.pack(anchor= "w", fill= "both", expand= True, side= "left")
 
@@ -53,7 +76,36 @@ class App(tk.Tk):
         self.canvas.bind("<Configure>", lambda event: self.canvas.itemconfig(self.canvas_window, width= event.width))
 
         self.build_menu()
-        self.after(1, lambda: self.canvas.yview_moveto(0))
+        self.check_reset()
+        self.time()
+
+
+    def reset(self):
+        """
+        Setzt alle Tasks auf nicht erledigt.
+        """
+        for data in self.data:
+            data["done"] = False
+
+        functions.write(data= self.data, due_day= functions.list_due_day(date= self.due_day))
+        logger.info("Alle Tasks zurückgesetzt")
+        self.refresh()
+
+    
+    def check_reset(self):
+        data, saved_date = functions.read()
+        saved_date = functions.make_due_date(data= saved_date)
+
+        if functions.check_time(reset_day= saved_date)[0]:
+            logger.info(f"Resetting Tasks, saved_due_day: {saved_date}")   
+            self.reset()
+
+
+    def open_settings(self):
+        subprocess.run(["notepad", config.config_path])
+
+        update.restart(app_instance= self)
+
 
     # adds new tasks 
     def add_task(self):
@@ -68,6 +120,12 @@ class App(tk.Tk):
         """
         Erstellt Instanzen von Task und packt diese in self.main_frame.
         """
+        self.data, saved_date = functions.read()
+        
+        if self.data is None:
+            logger.warning("Keine Daten in data.json")
+            return
+        
         ind = 0
         for task in self.data:
             self.tasks.append(Task(master= self.inner_frame,
@@ -75,8 +133,7 @@ class App(tk.Tk):
                                    note= task["note"],
                                    done= task["done"],
                                    index= ind,
-                                   app= self),
-                                   )
+                                   app_instance= self))
             ind += 1
         
         for task in self.tasks:
@@ -87,6 +144,8 @@ class App(tk.Tk):
         for task in self.tasks:
             task.grid(row= row, column= 0, pady= 5, padx= 10, sticky= "ew")
             row += 1
+        
+        self.after(1, lambda: self.canvas.yview_moveto(0))
 
 
     def refresh(self):
@@ -104,19 +163,40 @@ class App(tk.Tk):
         """
         del self.data[task] 
 
-        functions.write(data= self.data)
+        functions.write(data= self.data, due_day= functions.list_due_day(self.due_day))
 
         self.refresh()
 
     
     def time(self):
-        pass
+        reset_reached, now = functions.check_time(reset_day= self.due_day)
+        delta = self.due_day - now
+        total_s = delta.total_seconds()
+
+        days = delta.days
+        hours = int(total_s / 3600)
+        minutes = int((total_s / 60) % 60)
+        seconds = total_s % 60
+
+        if total_s > 86400: # 24 Stunden
+            wait = config.timer_refresh
+            self.timer.configure(text= f"{days} Tage {hours} Stunden {minutes} Minuten")
+        else:
+            wait = config.timer_refresh_24h
+            self.timer.configure(text= f"{hours} Stunden {minutes} Minuten {int(seconds)} Sekunden")
+
+
+        if reset_reached:
+            logger.info("Reset erreicht")
+            self.reset()
+        
+        self.after(wait, self.time)
 
 
 
 class Task(tk.Frame):
 
-    def __init__(self, master, title, note, done, index, app):
+    def __init__(self, master, title, note, done, index, app_instance):
         super().__init__(master)
 
         self.configure(relief= "raised", borderwidth= 2)
@@ -124,7 +204,7 @@ class Task(tk.Frame):
         self.title = title
         self.note = note
         self.done = done # Wird True wenn erledigt
-        self.app = app # Instanz der haupt App, damit man leichter die methoden ausführen kann.
+        self.app_instance = app_instance # Instanz der haupt App, damit man leichter die methoden ausführen kann.
 
         self.index = index # Index der Daten in App.data
         with Image.open(assets_path / "done.png")as img:
@@ -139,7 +219,7 @@ class Task(tk.Frame):
         self.done_button = tk.Button(master= self,
                                      relief= "flat",
                                      command= self.toggle_done)
-        self.done_button.bind("<MouseWheel>", lambda event: self.app.scroll(event))
+        self.done_button.bind("<MouseWheel>", lambda event: self.app_instance.scroll(event))
         self.done_button.grid(row= 0, column= 0, padx= 5, pady= 5, rowspan= 2)
         if self.done is False:
             self.done_button.configure(image= self.not_done_img)
@@ -150,18 +230,18 @@ class Task(tk.Frame):
                                     text= self.title,
                                     font= "TkDefaultFont 14 bold",
                                     wraplength= 1000)
-        self.title_label.bind("<MouseWheel>", lambda event: self.app.scroll(event))
+        self.title_label.bind("<MouseWheel>", lambda event: self.app_instance.scroll(event))
         self.title_label.grid(row= 0, column= 1, padx= (0, 10))
 
         self.note_message = tk.Message(master= self,
                                        text= self.note)
-        self.note_message.bind("<MouseWheel>", lambda event: self.app.scroll(event))
+        self.note_message.bind("<MouseWheel>", lambda event: self.app_instance.scroll(event))
         self.note_message.grid(row= 1, column= 1, padx= (0, 10))
 
         self.bind("<Configure>", self.update_width)
 
 
-    def toggle_done(self):
+    def toggle_done(self, write = True):
         """
         Stellt done auf True und wechselt das Bild.
         """
@@ -172,9 +252,10 @@ class Task(tk.Frame):
         else:
             self.done_button.configure(image= self.not_done_img)
 
-        self.app.data[self.index]["done"] = self.done
+        self.app_instance.data[self.index]["done"] = self.done
         
-        functions.write(data= self.app.data, path= data_path)
+        if write:
+            functions.write(data= self.app_instance.data, due_day= functions.list_due_day(self.app_instance.due_day))
 
 
     # Sorgt dafür, dass sich der Text an die Größe anpasst
@@ -235,15 +316,7 @@ class CreateTask(tk.Toplevel):
 
         self.master.data.append(data)
 
-        functions.write(data= self.master.data, path= data_path)
+        functions.write(data= self.master.data, due_day= functions.list_due_day(self.master.due_day))
 
         self.master.refresh()
-
         self.clear()
-
-
-dat = functions.read(path= data_path)
-
-app = App(data= dat)
-
-app.mainloop()

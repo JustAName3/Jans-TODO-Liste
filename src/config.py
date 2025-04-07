@@ -19,8 +19,13 @@ def load_config(path= config_path):
 
     global due_day
     global due_time
+    global with_console
+    global timer_refresh
+    global timer_refresh_24h
 
     # Wichtige Vars
     due_day = _days.index(config["reset_tag"])
     due_time = (config["reset_stunde"], config["reset_minute"])
-
+    with_console = config["konsole"]
+    timer_refresh = config["timer_refresh"]
+    timer_refresh_24h = config["timer_refresh_24h"]

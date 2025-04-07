@@ -1,4 +1,20 @@
+
 # Hier reinschreiben wann resetet werden soll.
+
 reset_tag: Freitag  # Montag, Dinestag, ..., Sonntag --> Rechtschreibung beachten!!!
+
 reset_stunde: 20  # 0-23
+
 reset_minute: 0 # 0-59
+
+
+
+# Zum Debuggen
+konsole: False
+timer_refresh: 60000 # 60.000 ms = 1 min
+timer_refresh_24h: 1000 # 1s
+
+
+
+# Speichern nach bearbeiten nicht vergessen!!!!!!
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
