@@ -12,6 +12,8 @@ Es ist nicht üblich aus Python eine .exe Datei zu machen. Weswegen ich auch zum
 
 2. GitHub Repository (also das alles hier) [herunterladen](https://github.com/JustAName3/Jans-TODO-Liste/archive/refs/heads/master.zip) und entpacken.  
 
+    Zum herunterladen oben auf den grünen "Code" Knopf und dann im Menü ganz unten auf "Download ZIP" klicken.
+
 3. In den Ordner "Jans TODO Liste" wechseln (im entpackten Ordner) und auf die Leiste oben im Explorer klicken (rot markiert), "cmd" eingeben und Enter drücken. 
 
 ![Bild nicht gefunden](assets/1.png)
