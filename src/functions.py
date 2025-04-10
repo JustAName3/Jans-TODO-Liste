@@ -56,6 +56,29 @@ def write(due_day: list, data: list[dict[str, str, bool]], path = data_path):
         file.write(json_str)
 
 
+def get_data(tasks: list) -> list:
+    """
+    Speichert die Attribute title, note, done, date aller gui.Task Instanzen in tasks.
+
+    :returns: list[dict[str, str, bool, list[int, int, int, int, int]]]
+    """
+    data = []
+
+    for task in tasks:  # task: gui.Task
+        attributes = {
+            "title": task.title,
+            "note":task.note,
+            "done": task.done
+        }
+        
+        date = list_date(date= task.date) if task.date is not None else None
+        attributes["date"] = date
+        
+        data.append(attributes)
+
+    return data
+
+
 def next_reset_date(due_day: int, time: tuple[int, int]):
     """
     Nimmt die Nummer eines Wochentages (0-6) und die Zeit und gibt das Datum des nächsten Tages.
@@ -103,7 +126,7 @@ def check_for_data(path= data_path):
     if not path.exists():
         empty = {
             "data": [],
-            "due_day": list_due_day(next_reset_date(due_day= 0, time= (0, 0)))
+            "due_day": list_date(next_reset_date(due_day= 0, time= (0, 0)))
         }
         empty_json = json.dumps(empty)
 
@@ -113,7 +136,7 @@ def check_for_data(path= data_path):
         logger.info(f"Keine data.json vorhanden, neue erstellt ({path})")
 
 
-def list_due_day(date: datetime.datetime) -> list:
+def list_date(date: datetime.datetime) -> list:
     l = [
         date.year,
         date.month,
@@ -125,7 +148,7 @@ def list_due_day(date: datetime.datetime) -> list:
     return l
 
 
-def make_due_date(data: list) -> datetime.datetime:
+def make_date(data: list) -> datetime.datetime:
     date = datetime.datetime(year= data[0],
                              month= data[1],
                              day= data[2],

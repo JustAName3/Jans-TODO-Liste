@@ -15,7 +15,7 @@ logger = logging.getLogger("main.update")
 try:
     config.load_config()
 except FileNotFoundError:
-    logger.exception()
+    logger.exception("")
 
 
 gh_repo = "https://raw.githubusercontent.com/JustAName3/Jans-TODO-Liste/refs/heads/master/"
@@ -137,7 +137,7 @@ def update(app_instance):
     try:
         files, new_version = parse_updates_txt(text= updates)
     except VersionException:
-        logger.exception()
+        logger.exception("")
         return
 
     for file in files:

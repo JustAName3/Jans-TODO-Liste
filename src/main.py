@@ -4,7 +4,7 @@ import log
 import gui
 
 
-VERSION = "v.0.1.0" # Muss mit jedem Update aktualisiert werden
+VERSION = "v.0.2.0" # Muss mit jedem Update aktualisiert werden
 
 
 def main():

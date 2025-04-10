@@ -8,6 +8,7 @@ import pathlib
 import logging
 import config
 import update
+import main
 import sys
 import os
 
@@ -35,8 +36,10 @@ class App(tk.Tk):
         self.due_day = functions.next_reset_date(due_day= config.due_day, time= config.due_time) # Nächster reset
        
         
-        self.gh_label = tk.Label(master= self, text= "GitHub: github.com/JustAName3/Jans-TODO-Liste", foreground= "grey")
-        self.gh_label.pack(padx= 10, pady= 5, side= "bottom")
+        # self.gh_label = tk.Label(master= self, text= "GitHub: github.com/JustAName3/Jans-TODO-Liste", foreground= "grey")
+        # self.gh_label.pack(padx= 10, pady= 5, side= "bottom")
+        self.version_label = tk.Label(master= self, text= f"Version: {main.VERSION}", foreground= "grey", font= "TkDefaultFont 7")
+        self.version_label.pack(padx= 10, pady= 5, side= "bottom")
 
 
         # Knöpfe oben
@@ -86,15 +89,18 @@ class App(tk.Tk):
         """
         for data in self.data:
             data["done"] = False
+            data["date"] = None
 
-        functions.write(data= self.data, due_day= functions.list_due_day(date= self.due_day))
+        self.due_day = functions.next_reset_date(due_day= config.due_day, time= config.due_time)
+        functions.write(data= self.data, due_day= functions.list_date(date= self.due_day))
         logger.info("Alle Tasks zurückgesetzt")
+        
         self.refresh()
 
     
     def check_reset(self):
         data, saved_date = functions.read()
-        saved_date = functions.make_due_date(data= saved_date)
+        saved_date = functions.make_date(data= saved_date)
 
         if functions.check_time(reset_day= saved_date)[0]:
             logger.info(f"Resetting Tasks, saved_due_day: {saved_date}")   
@@ -118,26 +124,29 @@ class App(tk.Tk):
 
     def build_menu(self):
         """
-        Erstellt Instanzen von Task und packt diese in self.main_frame.
+        Erstellt Instanzen von Task und packt diese in self.main_inner_frame.
         """
-        self.data, saved_date = functions.read()
+        self.data = functions.read()[0]
         
         if self.data is None:
             logger.warning("Keine Daten in data.json")
             return
         
         ind = 0
-        for task in self.data:
+        for task in self.data:  # task: dict 
+            date = functions.make_date(task.get("date")) if task.get("date") is not None else None
+
             self.tasks.append(Task(master= self.inner_frame,
                                    title= task["title"],
                                    note= task["note"],
                                    done= task["done"],
+                                   date= date,  # Kann None sein
                                    index= ind,
                                    app_instance= self))
             ind += 1
         
-        for task in self.tasks:
-            task.bind("<MouseWheel>", lambda event: self.scroll(event))
+        # for task in self.tasks:
+        #     task.bind("<MouseWheel>", lambda event: self.scroll(event))
         
         self.inner_frame.columnconfigure(0, weight= 1)
         row = 0
@@ -145,7 +154,7 @@ class App(tk.Tk):
             task.grid(row= row, column= 0, pady= 5, padx= 10, sticky= "ew")
             row += 1
         
-        self.after(1, lambda: self.canvas.yview_moveto(0))
+        self.after(2, lambda: self.canvas.yview_moveto(0))
 
 
     def refresh(self):
@@ -161,9 +170,11 @@ class App(tk.Tk):
         """
         Löscht Tasks aus der Liste und refreshed.
         """
+        logger.info("Lösche Task")
+        logger.debug(f"Lösche Task {self.data[task]["title"]} (note: {self.data[task]["note"]}, done: {self.data[task]["done"]})")
         del self.data[task] 
 
-        functions.write(data= self.data, due_day= functions.list_due_day(self.due_day))
+        functions.write(data= self.data, due_day= functions.list_date(self.due_day))
 
         self.refresh()
 
@@ -174,7 +185,7 @@ class App(tk.Tk):
         total_s = delta.total_seconds()
 
         days = delta.days
-        hours = int(total_s / 3600)
+        hours = int((total_s / 3600) % 24)
         minutes = int((total_s / 60) % 60)
         seconds = total_s % 60
 
@@ -194,33 +205,44 @@ class App(tk.Tk):
 
 
 
+# Bilder für die Knöpfe 
+with Image.open(assets_path / "done.png")as img:
+    done_png = img.resize((30, 30))
+        
+with Image.open(assets_path / "notdone.png") as img:
+    notdone_png = img.resize((30, 30))
+
+
 class Task(tk.Frame):
 
-    def __init__(self, master, title, note, done, index, app_instance):
+    def __init__(self, master, title, note, done, date, index, app_instance):
         super().__init__(master)
-
-        self.configure(relief= "raised", borderwidth= 2)
 
         self.title = title
         self.note = note
         self.done = done # Wird True wenn erledigt
+        self.date: datetime.datetime = date # Wann die Task erledigt wurde
         self.app_instance = app_instance # Instanz der haupt App, damit man leichter die methoden ausführen kann.
+        self.context_menu = ContextMenu(master= self)
+
+        self.configure(relief= "raised", borderwidth= 2)
+        self.bind("<Configure>", self.update_width)
+        self.bind("<MouseWheel>", lambda event: self.app_instance.scroll(event))
+        self.bind("<Button-3>", lambda event: self.context_menu.tk_popup(x= event.x_root, y= event.y_root))
+
 
         self.index = index # Index der Daten in App.data
-        with Image.open(assets_path / "done.png")as img:
-            img = img.resize((30, 30))
-            self.done_img = ImageTk.PhotoImage(img)
-        
-        with Image.open(assets_path / "notdone.png") as img:
-            img = img.resize((30, 30))
-            self.not_done_img = ImageTk.PhotoImage(img)
+        self.done_img = ImageTk.PhotoImage(done_png)
+        self.not_done_img = ImageTk.PhotoImage(notdone_png)
 
 
         self.done_button = tk.Button(master= self,
                                      relief= "flat",
                                      command= self.toggle_done)
         self.done_button.bind("<MouseWheel>", lambda event: self.app_instance.scroll(event))
-        self.done_button.grid(row= 0, column= 0, padx= 5, pady= 5, rowspan= 2)
+        self.done_button.bind("<Button-3>", lambda event: self.context_menu.tk_popup(x= event.x_root, y= event.y_root))
+        
+        # zuordnen des richtigen Bildes
         if self.done is False:
             self.done_button.configure(image= self.not_done_img)
         else:
@@ -231,31 +253,51 @@ class Task(tk.Frame):
                                     font= "TkDefaultFont 14 bold",
                                     wraplength= 1000)
         self.title_label.bind("<MouseWheel>", lambda event: self.app_instance.scroll(event))
-        self.title_label.grid(row= 0, column= 1, padx= (0, 10))
+        self.title_label.bind("<Button-3>", lambda event: self.context_menu.tk_popup(x= event.x_root, y= event.y_root))
 
         self.note_message = tk.Message(master= self,
                                        text= self.note)
         self.note_message.bind("<MouseWheel>", lambda event: self.app_instance.scroll(event))
-        self.note_message.grid(row= 1, column= 1, padx= (0, 10))
+        self.note_message.bind("<Button-3>", lambda event: self.context_menu.tk_popup(x= event.x_root, y= event.y_root))
 
-        self.bind("<Configure>", self.update_width)
+        self.date_str = f"Erledigt am: {self.date.day}.{self.date.month}.{self.date.year} {self.date.hour}:{self.date.minute} Uhr" if self.date is not None else ""  # Wenn self.date nicht None ist wird dieser String benutzt.
+        self.date_label = tk.Label(master= self, text= self.date_str, font= "TkDefaultFont 8", foreground= "grey")
+        self.date_label.bind("<Button-3>", lambda event: self.context_menu.tk_popup(x= event.x_root, y= event.y_root))
+
+        # platzieren der Widgets
+        self.done_button.grid(row= 0, column= 0, padx= 5, pady= 5, rowspan= 2)
+        self.title_label.grid(row= 0, column= 1, padx= (0, 10), sticky= "w")
+        self.note_message.grid(row= 1, column= 1, padx= (0, 10), sticky= "w")
+        
+        if self.date is not None:
+            self.date_label.grid(row= 2, column= 1, sticky= "nw")
 
 
     def toggle_done(self, write = True):
         """
         Stellt done auf True und wechselt das Bild.
+        Speichert das Datum wann Aufgabe erledigt wurde, stellt self.date und data["date"] auf None wenn nicht mehr erledigt.
         """
         self.done = not self.done
         
         if self.done:
                 self.done_button.configure(image= self.done_img)
+                
+                self.date = datetime.datetime.today()
+                self.date_label.configure(text= f"Erledigt am: {self.date.day}.{self.date.month}.{self.date.year} {self.date.hour}:{self.date.minute} Uhr")
+                self.date_label.grid(row= 2, column= 1, padx= 5, pady= 5, sticky= "nw")
+                self.app_instance.data[self.index]["date"] = functions.list_date(self.date)
         else:
             self.done_button.configure(image= self.not_done_img)
+            
+            self.date = None
+            self.date_label.grid_remove()
+            self.app_instance.data[self.index]["date"] = self.date # None
 
         self.app_instance.data[self.index]["done"] = self.done
         
         if write:
-            functions.write(data= self.app_instance.data, due_day= functions.list_due_day(self.app_instance.due_day))
+            functions.write(data= self.app_instance.data, due_day= functions.list_date(self.app_instance.due_day))
 
 
     # Sorgt dafür, dass sich der Text an die Größe anpasst
@@ -264,6 +306,10 @@ class Task(tk.Frame):
 
         self.note_message.configure(width= new)
         self.title_label.configure(wraplength= new)
+
+
+    def delete(self):
+        self.app_instance.delete_task(task= self.index)
 
 
 class CreateTask(tk.Toplevel):
@@ -311,12 +357,55 @@ class CreateTask(tk.Toplevel):
         data = {
             "title": title,
             "note": note,
-            "done": False
+            "done": False,
+            "date": None
         }
 
         self.master.data.append(data)
+        logger.info("Task hinzugefügt")
+        logger.debug(f"Titel: {title}, note: {note}")
 
-        functions.write(data= self.master.data, due_day= functions.list_due_day(self.master.due_day))
+        functions.write(data= self.master.data, due_day= functions.list_date(self.master.due_day))
 
         self.master.refresh()
         self.clear()
+
+
+with Image.open(assets_path / "trash.png") as img:
+    trash_png = img.resize(size= (15, 15))
+with Image.open(assets_path / "edit.png") as img:
+    edit_png = img.resize(size= (15, 15))
+
+class ContextMenu(tk.Menu):
+
+    def __init__(self, master):
+        super().__init__(master)
+
+        self.configure(tearoff= 0)
+
+        self.trash_png = ImageTk.PhotoImage(trash_png)
+        self.edit_png = ImageTk.PhotoImage(edit_png)
+
+        self.add_command(label= "Löschen", image= self.trash_png, compound= "left", command= self.delete)
+
+        # self.add_command(label= "Bearbeiten", image= self.edit_png, compound= "left", command= self.edit) TODO
+
+
+    def delete(self):
+        self.master.delete()
+
+
+    def edit(self):
+        logger.info("Noch nicht fertig")
+
+
+class EditTask(CreateTask):
+
+    def __init__(self, master):
+        super().__init__(master)
+
+        self.title("Task bearbeiten")
+
+    
+    def save_edit(self):
+        ...
