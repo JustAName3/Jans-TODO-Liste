@@ -7,3 +7,4 @@ data.json
 src/__pycache__
 src/test.py
 noUpdate.txt
+src/old_update.py
