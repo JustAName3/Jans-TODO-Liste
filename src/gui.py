@@ -9,8 +9,6 @@ import logging
 import config
 import update
 import main
-import sys
-import os
 
 
 
@@ -32,7 +30,7 @@ class App(tk.Tk):
         self.geometry("1050x600")
 
         self.tasks: list = [] # Hier werden alle Task Instanzen gespeichert.
-        self.data: list = [] # Alle Daten der Tasks werden hier gespeichert. 
+        # self.data: list = [] # Alle Daten der Tasks werden hier gespeichert. 
         self.due_day = functions.next_reset_date(due_day= config.due_day, time= config.due_time) # Nächster reset
        
         
@@ -87,12 +85,12 @@ class App(tk.Tk):
         """
         Setzt alle Tasks auf nicht erledigt.
         """
-        for data in self.data:
-            data["done"] = False
-            data["date"] = None
+        for task in self.tasks:
+            task.done = False
+            task.date = None
 
         self.due_day = functions.next_reset_date(due_day= config.due_day, time= config.due_time)
-        functions.write(data= self.data, due_day= functions.list_date(date= self.due_day))
+        self.save_tasks()
         logger.info("Alle Tasks zurückgesetzt")
         
         self.refresh()
@@ -126,14 +124,14 @@ class App(tk.Tk):
         """
         Erstellt Instanzen von Task und packt diese in self.main_inner_frame.
         """
-        self.data = functions.read()[0]
+        data = functions.read()[0]
         
-        if self.data is None:
+        if data is None:
             logger.warning("Keine Daten in data.json")
             return
         
         ind = 0
-        for task in self.data:  # task: dict 
+        for task in data:  # task: dict 
             date = functions.make_date(task.get("date")) if task.get("date") is not None else None
 
             self.tasks.append(Task(master= self.inner_frame,
@@ -144,9 +142,7 @@ class App(tk.Tk):
                                    index= ind,
                                    app_instance= self))
             ind += 1
-        
-        # for task in self.tasks:
-        #     task.bind("<MouseWheel>", lambda event: self.scroll(event))
+
         
         self.inner_frame.columnconfigure(0, weight= 1)
         row = 0
@@ -165,17 +161,30 @@ class App(tk.Tk):
 
         self.build_menu()
 
+    
+    def save_tasks(self):
+        """
+        Sammelt alle Daten aus den Tasks und speichert sie in data.json
+        """
+        data = functions.collect_data(tasks= self.tasks)
+        day = functions.list_date(date= self.due_day)
+
+        functions.write(due_day= day, data= data)
+
 
     def delete_task(self, task: int):
         """
         Löscht Tasks aus der Liste und refreshed.
+        task ist der Index der Task Instanz in self.tasks.
         """
         logger.info("Lösche Task")
-        logger.debug(f"Lösche Task {self.data[task]["title"]} (note: {self.data[task]["note"]}, done: {self.data[task]["done"]})")
-        del self.data[task] 
+        logger.debug(f"Lösche Task {self.tasks[task].title} (note: {self.tasks[task].note}, done: {self.tasks[task].done})")
+        
+        self.tasks[task].destroy()
+        del self.tasks[task] 
 
-        functions.write(data= self.data, due_day= functions.list_date(self.due_day))
 
+        self.save_tasks()
         self.refresh()
 
     
@@ -215,7 +224,7 @@ with Image.open(assets_path / "notdone.png") as img:
 
 class Task(tk.Frame):
 
-    def __init__(self, master, title, note, done, date, index, app_instance):
+    def __init__(self, master, title, note, index, app_instance, done= False, date= None):
         super().__init__(master)
 
         self.title = title
@@ -286,18 +295,20 @@ class Task(tk.Frame):
                 self.date = datetime.datetime.today()
                 self.date_label.configure(text= f"Erledigt am: {self.date.day}.{self.date.month}.{self.date.year} {self.date.hour}:{self.date.minute} Uhr")
                 self.date_label.grid(row= 2, column= 1, padx= 5, pady= 5, sticky= "nw")
-                self.app_instance.data[self.index]["date"] = functions.list_date(self.date)
+                # self.app_instance.data[self.index]["date"] = functions.list_date(self.date)
         else:
             self.done_button.configure(image= self.not_done_img)
             
             self.date = None
             self.date_label.grid_remove()
-            self.app_instance.data[self.index]["date"] = self.date # None
+            # self.app_instance.data[self.index]["date"] = self.date # None
 
-        self.app_instance.data[self.index]["done"] = self.done
+        # self.app_instance.data[self.index]["done"] = self.done
         
         if write:
-            functions.write(data= self.app_instance.data, due_day= functions.list_date(self.app_instance.due_day))
+            self.app_instance.save_tasks()
+
+        logger.debug(f"Status Task {self.title}: {self.done}")
 
 
     # Sorgt dafür, dass sich der Text an die Größe anpasst
@@ -317,6 +328,7 @@ class CreateTask(tk.Toplevel):
     def __init__(self, master):
         
         super().__init__(master)
+        # master == App
 
         self.title("Neue Task erstellen"),
         self.iconbitmap(assets_path / "done.ico")
@@ -345,7 +357,7 @@ class CreateTask(tk.Toplevel):
 
     def save(self):
         """
-        Holt den Text aus den Entries und übergibt die Daten an den master.
+        Holt den Text aus den Entries, macht eine Task Instanz und übergibt die Daten an den master.
         """
         title = self.title_entry.get()
         note = self.note_text.get(1.0, "end-1c")
@@ -354,18 +366,21 @@ class CreateTask(tk.Toplevel):
             logger.info("No title given, returning")
             return 
 
-        data = {
-            "title": title,
-            "note": note,
-            "done": False,
-            "date": None
-        }
+        index = len(self.master.tasks) +1 
 
-        self.master.data.append(data)
+        new_task = Task(master= self.master.inner_frame,
+                        title= title,
+                        note= note,
+                        app_instance= self.master,
+                        index= index)
+
+        self.master.tasks.append(new_task)
+
         logger.info("Task hinzugefügt")
         logger.debug(f"Titel: {title}, note: {note}")
 
-        functions.write(data= self.master.data, due_day= functions.list_date(self.master.due_day))
+        self.master.save_tasks()
+        # functions.write(data= self.master.data, due_day= functions.list_date(self.master.due_day))
 
         self.master.refresh()
         self.clear()
@@ -380,6 +395,7 @@ class ContextMenu(tk.Menu):
 
     def __init__(self, master):
         super().__init__(master)
+        # master == Task
 
         self.configure(tearoff= 0)
 
@@ -388,7 +404,7 @@ class ContextMenu(tk.Menu):
 
         self.add_command(label= "Löschen", image= self.trash_png, compound= "left", command= self.delete)
 
-        # self.add_command(label= "Bearbeiten", image= self.edit_png, compound= "left", command= self.edit) TODO
+        self.add_command(label= "Bearbeiten", image= self.edit_png, compound= "left", command= self.edit)
 
 
     def delete(self):
@@ -396,16 +412,36 @@ class ContextMenu(tk.Menu):
 
 
     def edit(self):
-        logger.info("Noch nicht fertig")
+        editor = EditTask(master= self.master)
 
 
 class EditTask(CreateTask):
 
     def __init__(self, master):
         super().__init__(master)
+        # master == Task
 
         self.title("Task bearbeiten")
+        self.save_button.configure(command= self.save_edit)
+
+        # self.index = index # Index von Task Instanz in App.tasks
 
     
     def save_edit(self):
-        ...
+        new_title = self.title_entry.get()
+        new_note = self.note_text.get(1.0, "end-1c")
+
+        if new_title == "":
+            logger.info("No title given, returning")
+            return 
+
+        self.master.title = new_title
+        self.master.note = new_note
+
+        logger.info("Task bearbeitet")
+        logger.info(f"Neuer Titel: {self.master.title}, neue note: {self.master.note}")
+
+        self.master.app_instance.save_tasks()
+        self.master.app_instance.refresh()
+        self.destroy()
+

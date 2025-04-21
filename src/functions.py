@@ -26,9 +26,22 @@ data_path = pathlib.Path(__file__).parent.parent / "data.json"
 
 def read(path = data_path) -> tuple[list[dict[str, str, bool]], tuple[int, int, int, int, int]]:    # Das ist Quatsch
     """
-    Öffnet path und liest Inhalt. 
+    Öffnet path und liest Inhalt.
 
-    :returns: tuple[list[dict[str, str, bool]], tuple[int, int, int, int, int]]
+    [0] = Daten für die Tasks "data", [1] = Datum als Liste gespeichert "due_day", siehe list_date()
+
+    :returns: tuple[list[dict], list[int]]
+
+    [0] = [
+        {
+        "title": str,
+        "note": str,
+        "done": bool,
+        "date": list --> siehe list_date()
+        }
+
+    [1] = [int, int ,int, int, int]
+    ----->[year, month, day, hour, minute]
     """
     check_for_data()
 
@@ -44,6 +57,20 @@ def read(path = data_path) -> tuple[list[dict[str, str, bool]], tuple[int, int, 
 def write(due_day: list, data: list[dict[str, str, bool]], path = data_path):
     """
     Schreibt data in path.
+
+    json = {
+        "data": [
+            {
+            "title": str,
+            "note": str,
+            "done": bool,
+            "date": list --> siehe list_date()
+            },
+            ...
+        ],
+
+        "due_day": [year, month, day, hour, minute] --> alles ints
+    }
     """
     raw = {
         "data": data,
@@ -56,7 +83,7 @@ def write(due_day: list, data: list[dict[str, str, bool]], path = data_path):
         file.write(json_str)
 
 
-def get_data(tasks: list) -> list:
+def collect_data(tasks: list) -> list[dict]:
     """
     Speichert die Attribute title, note, done, date aller gui.Task Instanzen in tasks.
 
@@ -107,8 +134,8 @@ def next_reset_date(due_day: int, time: tuple[int, int]):
 
 def check_time(reset_day: datetime.datetime):
     """
-    Returns True wenn der reset erreicht ist.
-    Now ist für den Timer, dann muss das nicht nocheinmal geholt werden.
+    Returns True wenn, der reset erreicht ist.
+    Now ist für den Timer, dann muss das nicht noch einmal geholt werden.
 
     """
     now = datetime.datetime.today()
@@ -121,7 +148,7 @@ def check_time(reset_day: datetime.datetime):
 
 def check_for_data(path= data_path):
     """
-    Überprüft ob die data.json Datei vorhanden ist, wenn nicht wird eine erstellt. 
+    Überprüft, ob die data.json Datei vorhanden ist, wenn nicht, wird eine erstellt.
     """
     if not path.exists():
         empty = {
