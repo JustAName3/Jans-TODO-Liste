@@ -424,6 +424,9 @@ class EditTask(CreateTask):
         self.title("Task bearbeiten")
         self.save_button.configure(command= self.save_edit)
 
+        self.title_entry.insert(0, self.master.title)
+        self.note_text.insert(0.0, self.master.note)
+
         # self.index = index # Index von Task Instanz in App.tasks
 
     
