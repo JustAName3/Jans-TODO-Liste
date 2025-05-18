@@ -40,7 +40,7 @@ def load_config(path= config_path):
     with_console = config["konsole"]
     timer_refresh = config["timer_refresh"]
     timer_refresh_24h = config["timer_refresh_24h"]
-    d_mode = config["d_mode"]
+    d_mode = config.get("d_mode", False)
     bg_color = "white" if not d_mode else d_mode_color
     tx_color = "black" if not d_mode else "white"
 
