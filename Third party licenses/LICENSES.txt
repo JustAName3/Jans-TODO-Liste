@@ -1,0 +1,14 @@
+None of the used libraries where modified. The source code is available at the linked GitHub repositories.
+
+
+certifi             --> Mozilla Public License 2.0 (MPL 2.0)    (https://github.com/certifi/python-certifi)
+idna                --> BSD License                             (https://github.com/kjd/idna)
+requests            --> Apache Software License 2.0             (https://github.com/psf/requests)
+
+charset-normalizer  --> MIT License                             (https://github.com/jawah/charset_normalizer)
+pillow              --> MIT-CMU                                 (https://github.com/python-pillow/Pillow)
+PyYAML              --> MIT License                             (https://github.com/yaml/pyyaml)
+urllib3             --> MIT License                             (https://github.com/urllib3/urllib3)
+
+
+This was made on the 20th May 2025. (https://github.com/JustAName3/Jans-TODO-Liste)
